@@ -1,4 +1,3 @@
-import { SetRequired } from "type-fest";
 import { PluginInsightsConfig, CloudFormationTemplate } from "../definitions";
 import { getAlarmResources } from "../resources/alarms";
 import { getLambdaExecutionRoleResource } from "../resources/helpers";
@@ -6,7 +5,7 @@ import { applyAlarmToLambda, ApplyAlarmToLambdaParams } from "./alarms";
 
 interface ApplyLambdaInsightsParams {
   lambdaKey: string;
-  config: SetRequired<PluginInsightsConfig, "enabled" | "version">;
+  config: Required<PluginInsightsConfig>;
   namespace: string;
   kmsKeyArn?: string;
 }
@@ -46,7 +45,7 @@ export default function applyLambdaInsights(
           lambdaName: lambda.Properties.FunctionName,
           namespace,
           alarmKey: `${lambdaKey}ExcessiveMemoryUsageAlarm`,
-          snsKey: `${lambdaKey}ExcessiveMemoryUsageTopic`,
+          snsKey: `${lambdaKey}ExcessiveMemoryUsageAlarmTopic`,
           kmsKeyArn,
         },
         getExcessiveMemoryUsageAlarm,

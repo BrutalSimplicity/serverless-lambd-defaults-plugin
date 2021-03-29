@@ -100,7 +100,7 @@ export function applyDLQConfig(
           ...props,
           config: dlqConfig.alarms.deadLetterMessages,
           alarmKey: `${lambdaKey}DeadLetterMessagesAlarm`,
-          snsKey: `${lambdaKey}DeadLetterMessagesTopic`,
+          snsKey: `${lambdaKey}DeadLetterMessagesAlarmTopic`,
           kmsKeyArn,
         },
         getDeadLetterMessagesAlarm,
