@@ -1,0 +1,46 @@
+service: lambda-defaults-plugin-example
+
+provider:
+  name: aws
+  runtime: python3.8
+  timeout: 30
+
+custom:
+  lambdaDefaults:
+    dlq:
+      enabled: false
+    insights:
+      enabled: false
+    alarms:
+      enabled: false
+
+plugins:
+  - ../dist
+
+package:
+  exclude:
+    - "**/*"
+  include:
+    - '!.**'
+    - index.py
+
+functions:
+  ping:
+    handler: index.lambda_handler
+    tracing: Active
+    events:
+      - http:
+          path: /
+          method: get
+
+  pong:
+    handler: index.lambda_handler
+    tracing: Active
+    lambdaDefaults:
+      alarms:
+        excessiveExecutionTime:
+          threshold: 15
+    events:
+      - http:
+          path: /
+          method: get

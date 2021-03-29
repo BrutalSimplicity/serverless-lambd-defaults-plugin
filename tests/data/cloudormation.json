@@ -1,0 +1,946 @@
+{
+    "AWSTemplateFormatVersion": "2010-09-09",
+    "Description": "The AWS CloudFormation template for this Serverless application",
+    "Resources": {
+      "ServerlessDeploymentBucket": {
+        "Type": "AWS::S3::Bucket",
+        "Properties": {
+          "BucketEncryption": {
+            "ServerSideEncryptionConfiguration": [
+              {
+                "ServerSideEncryptionByDefault": {
+                  "SSEAlgorithm": "AES256"
+                }
+              }
+            ]
+          }
+        }
+      },
+      "ServerlessDeploymentBucketPolicy": {
+        "Type": "AWS::S3::BucketPolicy",
+        "Properties": {
+          "Bucket": {
+            "Ref": "ServerlessDeploymentBucket"
+          },
+          "PolicyDocument": {
+            "Statement": [
+              {
+                "Action": "s3:*",
+                "Effect": "Deny",
+                "Principal": "*",
+                "Resource": [
+                  {
+                    "Fn::Join": [
+                      "",
+                      [
+                        "arn:",
+                        {
+                          "Ref": "AWS::Partition"
+                        },
+                        ":s3:::",
+                        {
+                          "Ref": "ServerlessDeploymentBucket"
+                        },
+                        "/*"
+                      ]
+                    ]
+                  },
+                  {
+                    "Fn::Join": [
+                      "",
+                      [
+                        "arn:",
+                        {
+                          "Ref": "AWS::Partition"
+                        },
+                        ":s3:::",
+                        {
+                          "Ref": "ServerlessDeploymentBucket"
+                        }
+                      ]
+                    ]
+                  }
+                ],
+                "Condition": {
+                  "Bool": {
+                    "aws:SecureTransport": false
+                  }
+                }
+              }
+            ]
+          }
+        }
+      },
+      "PingLogGroup": {
+        "Type": "AWS::Logs::LogGroup",
+        "Properties": {
+          "LogGroupName": "/aws/lambda/lambda-defaults-plugin-example-dev-ping"
+        }
+      },
+      "PongLogGroup": {
+        "Type": "AWS::Logs::LogGroup",
+        "Properties": {
+          "LogGroupName": "/aws/lambda/lambda-defaults-plugin-example-dev-pong"
+        }
+      },
+      "IamRoleLambdaExecution": {
+        "Type": "AWS::IAM::Role",
+        "Properties": {
+          "AssumeRolePolicyDocument": {
+            "Version": "2012-10-17",
+            "Statement": [
+              {
+                "Effect": "Allow",
+                "Principal": {
+                  "Service": [
+                    "lambda.amazonaws.com"
+                  ]
+                },
+                "Action": [
+                  "sts:AssumeRole"
+                ]
+              }
+            ]
+          },
+          "Policies": [
+            {
+              "PolicyName": {
+                "Fn::Join": [
+                  "-",
+                  [
+                    "lambda-defaults-plugin-example",
+                    "dev",
+                    "lambda"
+                  ]
+                ]
+              },
+              "PolicyDocument": {
+                "Version": "2012-10-17",
+                "Statement": [
+                  {
+                    "Effect": "Allow",
+                    "Action": [
+                      "logs:CreateLogStream",
+                      "logs:CreateLogGroup"
+                    ],
+                    "Resource": [
+                      {
+                        "Fn::Sub": "arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/lambda-defaults-plugin-example-dev*:*"
+                      }
+                    ]
+                  },
+                  {
+                    "Effect": "Allow",
+                    "Action": [
+                      "logs:PutLogEvents"
+                    ],
+                    "Resource": [
+                      {
+                        "Fn::Sub": "arn:${AWS::Partition}:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/lambda-defaults-plugin-example-dev*:*:*"
+                      }
+                    ]
+                  },
+                  {
+                    "Effect": "Allow",
+                    "Action": [
+                      "xray:PutTraceSegments",
+                      "xray:PutTelemetryRecords"
+                    ],
+                    "Resource": [
+                      "*"
+                    ]
+                  },
+                  {
+                    "Effect": "Allow",
+                    "Action": [
+                      "sqs:SendMessage"
+                    ],
+                    "Resource": [
+                      {
+                        "Fn::GetAtt": [
+                          "PingLambdaFunctionDLQ",
+                          "Arn"
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "Effect": "Allow",
+                    "Action": [
+                      "sqs:SendMessage"
+                    ],
+                    "Resource": [
+                      {
+                        "Fn::GetAtt": [
+                          "PongLambdaFunctionDLQ",
+                          "Arn"
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          ],
+          "Path": "/",
+          "RoleName": {
+            "Fn::Join": [
+              "-",
+              [
+                "lambda-defaults-plugin-example",
+                "dev",
+                {
+                  "Ref": "AWS::Region"
+                },
+                "lambdaRole"
+              ]
+            ]
+          },
+          "ManagedPolicyArns": [
+            "arn:aws:iam::aws:policy/CloudWatchLambdaInsightsExecutionRolePolicy"
+          ]
+        }
+      },
+      "PingLambdaFunction": {
+        "Type": "AWS::Lambda::Function",
+        "Properties": {
+          "Code": {
+            "S3Bucket": {
+              "Ref": "ServerlessDeploymentBucket"
+            },
+            "S3Key": "serverless/lambda-defaults-plugin-example/dev/1616985518126-2021-03-29T02:38:38.126Z/lambda-defaults-plugin-example.zip"
+          },
+          "Handler": "index.lambda_handler",
+          "Runtime": "python3.8",
+          "FunctionName": "lambda-defaults-plugin-example-dev-ping",
+          "MemorySize": 1024,
+          "Timeout": 30,
+          "TracingConfig": {
+            "Mode": "Active"
+          },
+          "Role": {
+            "Fn::GetAtt": [
+              "IamRoleLambdaExecution",
+              "Arn"
+            ]
+          },
+          "DeadLetterConfig": {
+            "TargetArn": {
+              "Fn::GetAtt": [
+                "PingLambdaFunctionDLQ",
+                "Arn"
+              ]
+            }
+          },
+          "Layers": [
+            {
+              "Fn::Sub": "arn:aws:lambda:${AWS::Region}:580247275435:layer:LambdaInsightsExtension:14"
+            }
+          ]
+        },
+        "DependsOn": [
+          "PingLogGroup"
+        ]
+      },
+      "PongLambdaFunction": {
+        "Type": "AWS::Lambda::Function",
+        "Properties": {
+          "Code": {
+            "S3Bucket": {
+              "Ref": "ServerlessDeploymentBucket"
+            },
+            "S3Key": "serverless/lambda-defaults-plugin-example/dev/1616985518126-2021-03-29T02:38:38.126Z/lambda-defaults-plugin-example.zip"
+          },
+          "Handler": "index.lambda_handler",
+          "Runtime": "python3.8",
+          "FunctionName": "lambda-defaults-plugin-example-dev-pong",
+          "MemorySize": 1024,
+          "Timeout": 30,
+          "TracingConfig": {
+            "Mode": "Active"
+          },
+          "Role": {
+            "Fn::GetAtt": [
+              "IamRoleLambdaExecution",
+              "Arn"
+            ]
+          },
+          "DeadLetterConfig": {
+            "TargetArn": {
+              "Fn::GetAtt": [
+                "PongLambdaFunctionDLQ",
+                "Arn"
+              ]
+            }
+          },
+          "Layers": [
+            {
+              "Fn::Sub": "arn:aws:lambda:${AWS::Region}:580247275435:layer:LambdaInsightsExtension:14"
+            }
+          ]
+        },
+        "DependsOn": [
+          "PongLogGroup"
+        ]
+      },
+      "PingLambdaVersionE2LPdg1IGDz3PrJYbcvmX9WYTwAFDB7keW9ZUoas": {
+        "Type": "AWS::Lambda::Version",
+        "DeletionPolicy": "Retain",
+        "Properties": {
+          "FunctionName": {
+            "Ref": "PingLambdaFunction"
+          },
+          "CodeSha256": "v5VaGRkR7wqDktFifvTwe+jC8w3IUSyp/MqVSF9U3KM="
+        }
+      },
+      "PongLambdaVersionRygfcNbmW4cJPBk4KALoXPTvP2xQXSt1PYtZSsWpgo": {
+        "Type": "AWS::Lambda::Version",
+        "DeletionPolicy": "Retain",
+        "Properties": {
+          "FunctionName": {
+            "Ref": "PongLambdaFunction"
+          },
+          "CodeSha256": "v5VaGRkR7wqDktFifvTwe+jC8w3IUSyp/MqVSF9U3KM="
+        }
+      },
+      "ApiGatewayRestApi": {
+        "Type": "AWS::ApiGateway::RestApi",
+        "Properties": {
+          "Name": "dev-lambda-defaults-plugin-example",
+          "EndpointConfiguration": {
+            "Types": [
+              "EDGE"
+            ]
+          },
+          "Policy": ""
+        }
+      },
+      "ApiGatewayMethodGet": {
+        "Type": "AWS::ApiGateway::Method",
+        "Properties": {
+          "HttpMethod": "GET",
+          "RequestParameters": {},
+          "ResourceId": {
+            "Fn::GetAtt": [
+              "ApiGatewayRestApi",
+              "RootResourceId"
+            ]
+          },
+          "RestApiId": {
+            "Ref": "ApiGatewayRestApi"
+          },
+          "ApiKeyRequired": false,
+          "AuthorizationType": "NONE",
+          "Integration": {
+            "IntegrationHttpMethod": "POST",
+            "Type": "AWS_PROXY",
+            "Uri": {
+              "Fn::Join": [
+                "",
+                [
+                  "arn:",
+                  {
+                    "Ref": "AWS::Partition"
+                  },
+                  ":apigateway:",
+                  {
+                    "Ref": "AWS::Region"
+                  },
+                  ":lambda:path/2015-03-31/functions/",
+                  {
+                    "Fn::GetAtt": [
+                      "PongLambdaFunction",
+                      "Arn"
+                    ]
+                  },
+                  "/invocations"
+                ]
+              ]
+            }
+          },
+          "MethodResponses": []
+        }
+      },
+      "ApiGatewayDeployment1616985512753": {
+        "Type": "AWS::ApiGateway::Deployment",
+        "Properties": {
+          "RestApiId": {
+            "Ref": "ApiGatewayRestApi"
+          },
+          "StageName": "dev"
+        },
+        "DependsOn": [
+          "ApiGatewayMethodGet",
+          "ApiGatewayMethodGet"
+        ]
+      },
+      "PingLambdaPermissionApiGateway": {
+        "Type": "AWS::Lambda::Permission",
+        "Properties": {
+          "FunctionName": {
+            "Fn::GetAtt": [
+              "PingLambdaFunction",
+              "Arn"
+            ]
+          },
+          "Action": "lambda:InvokeFunction",
+          "Principal": "apigateway.amazonaws.com",
+          "SourceArn": {
+            "Fn::Join": [
+              "",
+              [
+                "arn:",
+                {
+                  "Ref": "AWS::Partition"
+                },
+                ":execute-api:",
+                {
+                  "Ref": "AWS::Region"
+                },
+                ":",
+                {
+                  "Ref": "AWS::AccountId"
+                },
+                ":",
+                {
+                  "Ref": "ApiGatewayRestApi"
+                },
+                "/*/*"
+              ]
+            ]
+          }
+        }
+      },
+      "PongLambdaPermissionApiGateway": {
+        "Type": "AWS::Lambda::Permission",
+        "Properties": {
+          "FunctionName": {
+            "Fn::GetAtt": [
+              "PongLambdaFunction",
+              "Arn"
+            ]
+          },
+          "Action": "lambda:InvokeFunction",
+          "Principal": "apigateway.amazonaws.com",
+          "SourceArn": {
+            "Fn::Join": [
+              "",
+              [
+                "arn:",
+                {
+                  "Ref": "AWS::Partition"
+                },
+                ":execute-api:",
+                {
+                  "Ref": "AWS::Region"
+                },
+                ":",
+                {
+                  "Ref": "AWS::AccountId"
+                },
+                ":",
+                {
+                  "Ref": "ApiGatewayRestApi"
+                },
+                "/*/*"
+              ]
+            ]
+          }
+        }
+      },
+      "PingLambdaFunctionDLQ": {
+        "Type": "AWS::SQS::Queue",
+        "Properties": {
+          "QueueName": "PingLambdaFunction-DeadLetterQueue-dev"
+        }
+      },
+      "PingLambdaFunctionDeadLetterErrorsAlarm": {
+        "Type": "AWS::CloudWatch::Alarm",
+        "Properties": {
+          "AlarmName": "DeadLetterErrors-PingLambdaFunction-dev",
+          "AlarmDescription": "This alarm indicates the lambda function is having errors putting messages on the Dead-Letter queue",
+          "Namespace": "AWS/Lambda",
+          "Dimensions": [
+            {
+              "Name": "FunctionName",
+              "Value": "lambda-defaults-plugin-example-dev-ping"
+            }
+          ],
+          "EvaluationPeriods": 2,
+          "DatapointsToAlarm": 2,
+          "Period": 60,
+          "MetricName": "DeadLetterErrors",
+          "Threshold": 1,
+          "TreatMissingData": "notBreaching",
+          "ComparisonOperator": "GreaterThanOrEqualToThreshold",
+          "Statistic": "Sum",
+          "AlarmActions": [
+            {
+              "Ref": "PingLambdaFunctionDeadLetterErrorsAlarmTopic"
+            }
+          ],
+          "OKActions": [
+            {
+              "Ref": "PingLambdaFunctionDeadLetterErrorsAlarmTopic"
+            }
+          ]
+        }
+      },
+      "PingLambdaFunctionDeadLetterErrorsAlarmTopic": {
+        "Type": "AWS::SNS::Topic",
+        "Properties": {
+          "TopicName": "PingLambdaFunctionDeadLetterErrorsAlarmTopic"
+        }
+      },
+      "PingLambdaFunctionDeadLetterMessagesAlarm": {
+        "Type": "AWS::CloudWatch::Alarm",
+        "Properties": {
+          "AlarmName": "DeadLetterMessages-PingLambdaFunction-dev",
+          "AlarmDescription": "This alarm indicates the lambda has messages waiting on the dead letter queue",
+          "Namespace": "AWS/SQS",
+          "Dimensions": [
+            {
+              "Name": "FunctionName",
+              "Value": "lambda-defaults-plugin-example-dev-ping"
+            }
+          ],
+          "EvaluationPeriods": 1,
+          "DatapointsToAlarm": 1,
+          "Period": 60,
+          "MetricName": "ApproximateNumberOfMessagesVisible",
+          "Threshold": 1,
+          "TreatMissingData": "notBreaching",
+          "ComparisonOperator": "GreaterThanOrEqualToThreshold",
+          "Statistic": "Sum",
+          "AlarmActions": [
+            {
+              "Ref": "PingLambdaFunctionDeadLetterMessagesTopic"
+            }
+          ],
+          "OKActions": [
+            {
+              "Ref": "PingLambdaFunctionDeadLetterMessagesTopic"
+            }
+          ]
+        }
+      },
+      "PingLambdaFunctionDeadLetterMessagesTopic": {
+        "Type": "AWS::SNS::Topic",
+        "Properties": {
+          "TopicName": "PingLambdaFunctionDeadLetterMessagesTopic"
+        }
+      },
+      "PingLambdaFunctionExecutionTimeAlarm": {
+        "Type": "AWS::CloudWatch::Alarm",
+        "Properties": {
+          "AlarmName": "ExcessiveExecutionTime-PingLambdaFunction-dev",
+          "AlarmDescription": "This alarm indicates the lambda function's execution time is getting close to it's configured timeout",
+          "Namespace": "AWS/Lambda",
+          "Dimensions": [
+            {
+              "Name": "FunctionName",
+              "Value": "lambda-defaults-plugin-example-dev-ping"
+            }
+          ],
+          "EvaluationPeriods": 1,
+          "DatapointsToAlarm": 1,
+          "Period": 60,
+          "MetricName": "Duration",
+          "Threshold": 22.5,
+          "TreatMissingData": "ignore",
+          "ComparisonOperator": "GreaterThanOrEqualToThreshold",
+          "Statistic": "Average",
+          "AlarmActions": [
+            {
+              "Ref": "PingLambdaFunctionExecutionTimeTopic"
+            }
+          ],
+          "OKActions": [
+            {
+              "Ref": "PingLambdaFunctionExecutionTimeTopic"
+            }
+          ]
+        }
+      },
+      "PingLambdaFunctionExecutionTimeTopic": {
+        "Type": "AWS::SNS::Topic",
+        "Properties": {
+          "TopicName": "PingLambdaFunctionExecutionTimeTopic-dev"
+        }
+      },
+      "PingLambdaFunctionThrottleErrorsAlarm": {
+        "Type": "AWS::CloudWatch::Alarm",
+        "Properties": {
+          "AlarmName": "ThrottleErrors-PingLambdaFunction-dev",
+          "AlarmDescription": "This alarm indicates the lambda is being throttled",
+          "Namespace": "AWS/Lambda",
+          "Dimensions": [
+            {
+              "Name": "FunctionName",
+              "Value": "lambda-defaults-plugin-example-dev-ping"
+            }
+          ],
+          "EvaluationPeriods": 2,
+          "DatapointsToAlarm": 2,
+          "Period": 60,
+          "MetricName": "Throttles",
+          "Threshold": 1,
+          "TreatMissingData": "notBreaching",
+          "ComparisonOperator": "GreaterThanOrEqualToThreshold",
+          "Statistic": "Sum",
+          "AlarmActions": [
+            {
+              "Ref": "PingLambdaFunctionThrottleErrorsTopic"
+            }
+          ],
+          "OKActions": [
+            {
+              "Ref": "PingLambdaFunctionThrottleErrorsTopic"
+            }
+          ]
+        }
+      },
+      "PingLambdaFunctionThrottleErrorsTopic": {
+        "Type": "AWS::SNS::Topic",
+        "Properties": {
+          "TopicName": "PingLambdaFunctionThrottleErrorsTopic-dev"
+        }
+      },
+      "PongLambdaFunctionDLQ": {
+        "Type": "AWS::SQS::Queue",
+        "Properties": {
+          "QueueName": "PongLambdaFunction-DeadLetterQueue-dev"
+        }
+      },
+      "PongLambdaFunctionDeadLetterErrorsAlarm": {
+        "Type": "AWS::CloudWatch::Alarm",
+        "Properties": {
+          "AlarmName": "DeadLetterErrors-PongLambdaFunction-dev",
+          "AlarmDescription": "This alarm indicates the lambda function is having errors putting messages on the Dead-Letter queue",
+          "Namespace": "AWS/Lambda",
+          "Dimensions": [
+            {
+              "Name": "FunctionName",
+              "Value": "lambda-defaults-plugin-example-dev-pong"
+            }
+          ],
+          "EvaluationPeriods": 2,
+          "DatapointsToAlarm": 2,
+          "Period": 60,
+          "MetricName": "DeadLetterErrors",
+          "Threshold": 1,
+          "TreatMissingData": "notBreaching",
+          "ComparisonOperator": "GreaterThanOrEqualToThreshold",
+          "Statistic": "Sum",
+          "AlarmActions": [
+            {
+              "Ref": "PongLambdaFunctionDeadLetterErrorsAlarmTopic"
+            }
+          ],
+          "OKActions": [
+            {
+              "Ref": "PongLambdaFunctionDeadLetterErrorsAlarmTopic"
+            }
+          ]
+        }
+      },
+      "PongLambdaFunctionDeadLetterErrorsAlarmTopic": {
+        "Type": "AWS::SNS::Topic",
+        "Properties": {
+          "TopicName": "PongLambdaFunctionDeadLetterErrorsAlarmTopic"
+        }
+      },
+      "PongLambdaFunctionDeadLetterMessagesAlarm": {
+        "Type": "AWS::CloudWatch::Alarm",
+        "Properties": {
+          "AlarmName": "DeadLetterMessages-PongLambdaFunction-dev",
+          "AlarmDescription": "This alarm indicates the lambda has messages waiting on the dead letter queue",
+          "Namespace": "AWS/SQS",
+          "Dimensions": [
+            {
+              "Name": "FunctionName",
+              "Value": "lambda-defaults-plugin-example-dev-pong"
+            }
+          ],
+          "EvaluationPeriods": 1,
+          "DatapointsToAlarm": 1,
+          "Period": 60,
+          "MetricName": "ApproximateNumberOfMessagesVisible",
+          "Threshold": 1,
+          "TreatMissingData": "notBreaching",
+          "ComparisonOperator": "GreaterThanOrEqualToThreshold",
+          "Statistic": "Sum",
+          "AlarmActions": [
+            {
+              "Ref": "PongLambdaFunctionDeadLetterMessagesTopic"
+            }
+          ],
+          "OKActions": [
+            {
+              "Ref": "PongLambdaFunctionDeadLetterMessagesTopic"
+            }
+          ]
+        }
+      },
+      "PongLambdaFunctionDeadLetterMessagesTopic": {
+        "Type": "AWS::SNS::Topic",
+        "Properties": {
+          "TopicName": "PongLambdaFunctionDeadLetterMessagesTopic"
+        }
+      },
+      "PongLambdaFunctionExecutionTimeAlarm": {
+        "Type": "AWS::CloudWatch::Alarm",
+        "Properties": {
+          "AlarmName": "ExcessiveExecutionTime-PongLambdaFunction-dev",
+          "AlarmDescription": "This alarm indicates the lambda function's execution time is getting close to it's configured timeout",
+          "Namespace": "AWS/Lambda",
+          "Dimensions": [
+            {
+              "Name": "FunctionName",
+              "Value": "lambda-defaults-plugin-example-dev-pong"
+            }
+          ],
+          "EvaluationPeriods": 1,
+          "DatapointsToAlarm": 1,
+          "Period": 60,
+          "MetricName": "Duration",
+          "Threshold": 15,
+          "TreatMissingData": "ignore",
+          "ComparisonOperator": "GreaterThanOrEqualToThreshold",
+          "Statistic": "Average",
+          "AlarmActions": [
+            {
+              "Ref": "PongLambdaFunctionExecutionTimeTopic"
+            }
+          ],
+          "OKActions": [
+            {
+              "Ref": "PongLambdaFunctionExecutionTimeTopic"
+            }
+          ]
+        }
+      },
+      "PongLambdaFunctionExecutionTimeTopic": {
+        "Type": "AWS::SNS::Topic",
+        "Properties": {
+          "TopicName": "PongLambdaFunctionExecutionTimeTopic-dev"
+        }
+      },
+      "PongLambdaFunctionThrottleErrorsAlarm": {
+        "Type": "AWS::CloudWatch::Alarm",
+        "Properties": {
+          "AlarmName": "ThrottleErrors-PongLambdaFunction-dev",
+          "AlarmDescription": "This alarm indicates the lambda is being throttled",
+          "Namespace": "AWS/Lambda",
+          "Dimensions": [
+            {
+              "Name": "FunctionName",
+              "Value": "lambda-defaults-plugin-example-dev-pong"
+            }
+          ],
+          "EvaluationPeriods": 2,
+          "DatapointsToAlarm": 2,
+          "Period": 60,
+          "MetricName": "Throttles",
+          "Threshold": 1,
+          "TreatMissingData": "notBreaching",
+          "ComparisonOperator": "GreaterThanOrEqualToThreshold",
+          "Statistic": "Sum",
+          "AlarmActions": [
+            {
+              "Ref": "PongLambdaFunctionThrottleErrorsTopic"
+            }
+          ],
+          "OKActions": [
+            {
+              "Ref": "PongLambdaFunctionThrottleErrorsTopic"
+            }
+          ]
+        }
+      },
+      "PongLambdaFunctionThrottleErrorsTopic": {
+        "Type": "AWS::SNS::Topic",
+        "Properties": {
+          "TopicName": "PongLambdaFunctionThrottleErrorsTopic-dev"
+        }
+      }
+    },
+    "Outputs": {
+      "ServerlessDeploymentBucketName": {
+        "Value": {
+          "Ref": "ServerlessDeploymentBucket"
+        }
+      },
+      "PingLambdaFunctionQualifiedArn": {
+        "Description": "Current Lambda function version",
+        "Value": {
+          "Ref": "PingLambdaVersionE2LPdg1IGDz3PrJYbcvmX9WYTwAFDB7keW9ZUoas"
+        }
+      },
+      "PongLambdaFunctionQualifiedArn": {
+        "Description": "Current Lambda function version",
+        "Value": {
+          "Ref": "PongLambdaVersionRygfcNbmW4cJPBk4KALoXPTvP2xQXSt1PYtZSsWpgo"
+        }
+      },
+      "ServiceEndpoint": {
+        "Description": "URL of the service endpoint",
+        "Value": {
+          "Fn::Join": [
+            "",
+            [
+              "https://",
+              {
+                "Ref": "ApiGatewayRestApi"
+              },
+              ".execute-api.",
+              {
+                "Ref": "AWS::Region"
+              },
+              ".",
+              {
+                "Ref": "AWS::URLSuffix"
+              },
+              "/dev"
+            ]
+          ]
+        }
+      },
+      "PingLambdaFunctionDLQArn": {
+        "Value": {
+          "Fn::GetAtt": [
+            "PingLambdaFunctionDLQ",
+            "Arn"
+          ]
+        }
+      },
+      "PingLambdaFunctionDLQName": {
+        "Value": {
+          "Fn::GetAtt": [
+            "PingLambdaFunctionDLQ",
+            "QueueName"
+          ]
+        }
+      },
+      "PingLambdaFunctionDeadLetterErrorsAlarmTopicArn": {
+        "Value": {
+          "Ref": "PingLambdaFunctionDeadLetterErrorsAlarmTopic"
+        }
+      },
+      "PingLambdaFunctionDeadLetterErrorsAlarmArn": {
+        "Value": {
+          "Fn::GetAtt": [
+            "PingLambdaFunctionDeadLetterErrorsAlarm",
+            "Arn"
+          ]
+        }
+      },
+      "PingLambdaFunctionDeadLetterMessagesTopicArn": {
+        "Value": {
+          "Ref": "PingLambdaFunctionDeadLetterMessagesTopic"
+        }
+      },
+      "PingLambdaFunctionDeadLetterMessagesAlarmArn": {
+        "Value": {
+          "Fn::GetAtt": [
+            "PingLambdaFunctionDeadLetterMessagesAlarm",
+            "Arn"
+          ]
+        }
+      },
+      "PingLambdaFunctionExecutionTimeTopicArn": {
+        "Value": {
+          "Ref": "PingLambdaFunctionExecutionTimeTopic"
+        }
+      },
+      "PingLambdaFunctionExecutionTimeAlarmArn": {
+        "Value": {
+          "Fn::GetAtt": [
+            "PingLambdaFunctionExecutionTimeAlarm",
+            "Arn"
+          ]
+        }
+      },
+      "PingLambdaFunctionThrottleErrorsTopicArn": {
+        "Value": {
+          "Ref": "PingLambdaFunctionThrottleErrorsTopic"
+        }
+      },
+      "PingLambdaFunctionThrottleErrorsAlarmArn": {
+        "Value": {
+          "Fn::GetAtt": [
+            "PingLambdaFunctionThrottleErrorsAlarm",
+            "Arn"
+          ]
+        }
+      },
+      "PongLambdaFunctionDLQArn": {
+        "Value": {
+          "Fn::GetAtt": [
+            "PongLambdaFunctionDLQ",
+            "Arn"
+          ]
+        }
+      },
+      "PongLambdaFunctionDLQName": {
+        "Value": {
+          "Fn::GetAtt": [
+            "PongLambdaFunctionDLQ",
+            "QueueName"
+          ]
+        }
+      },
+      "PongLambdaFunctionDeadLetterErrorsAlarmTopicArn": {
+        "Value": {
+          "Ref": "PongLambdaFunctionDeadLetterErrorsAlarmTopic"
+        }
+      },
+      "PongLambdaFunctionDeadLetterErrorsAlarmArn": {
+        "Value": {
+          "Fn::GetAtt": [
+            "PongLambdaFunctionDeadLetterErrorsAlarm",
+            "Arn"
+          ]
+        }
+      },
+      "PongLambdaFunctionDeadLetterMessagesTopicArn": {
+        "Value": {
+          "Ref": "PongLambdaFunctionDeadLetterMessagesTopic"
+        }
+      },
+      "PongLambdaFunctionDeadLetterMessagesAlarmArn": {
+        "Value": {
+          "Fn::GetAtt": [
+            "PongLambdaFunctionDeadLetterMessagesAlarm",
+            "Arn"
+          ]
+        }
+      },
+      "PongLambdaFunctionExecutionTimeTopicArn": {
+        "Value": {
+          "Ref": "PongLambdaFunctionExecutionTimeTopic"
+        }
+      },
+      "PongLambdaFunctionExecutionTimeAlarmArn": {
+        "Value": {
+          "Fn::GetAtt": [
+            "PongLambdaFunctionExecutionTimeAlarm",
+            "Arn"
+          ]
+        }
+      },
+      "PongLambdaFunctionThrottleErrorsTopicArn": {
+        "Value": {
+          "Ref": "PongLambdaFunctionThrottleErrorsTopic"
+        }
+      },
+      "PongLambdaFunctionThrottleErrorsAlarmArn": {
+        "Value": {
+          "Fn::GetAtt": [
+            "PongLambdaFunctionThrottleErrorsAlarm",
+            "Arn"
+          ]
+        }
+      }
+    }
+  }
