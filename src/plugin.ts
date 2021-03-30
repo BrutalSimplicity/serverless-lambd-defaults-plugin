@@ -37,12 +37,6 @@ export class Plugin {
     this.provider = serverless.getProvider("aws");
     this.options = options;
 
-    validateConfigs(serverless);
-
-    this.config = this.mergeConfigs(
-      getDefaultPluginConfig(),
-      (serverless.service.custom?.[CONFIG_KEY] as PluginConfig) || {}
-    );
     this.hooks = {
       "after:aws:package:finalize:mergeCustomProviderResources": this.applyLambdaDefaults.bind(
         this
@@ -65,6 +59,11 @@ export class Plugin {
   }
 
   applyLambdaDefaults(): void {
+    this.config = this.mergeConfigs(
+      getDefaultPluginConfig(),
+      (this.serverless.service.custom?.[CONFIG_KEY] as PluginConfig) || {}
+    );
+    validateConfigs(this.serverless);
     const template = this.serverless.service.provider
       .compiledCloudFormationTemplate as CloudFormationTemplate;
     const service = this.serverless.service;

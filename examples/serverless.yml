@@ -11,7 +11,7 @@ plugins:
 custom:
   lambdaDefaults:
     kms:
-      kmsKeyArn: test
+      kmsKeyArn: ${cf:EC-KmsKey.KmsKeyArn}
 
 package:
   exclude:
