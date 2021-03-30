@@ -135,7 +135,7 @@ function getDeadLetterErrorsAlarm(params: ApplyAlarmToLambdaParams) {
       namespace: "AWS/Lambda",
       ...config,
     },
-    topicName: snsKey,
+    topicName: `${snsKey}-${namespace}`,
     snsKey,
     kmsKeyArn,
   });
@@ -161,7 +161,7 @@ function getDeadLetterMessagesAlarm(params: ApplyAlarmToLambdaParams) {
       namespace: "AWS/SQS",
       ...config,
     },
-    topicName: snsKey,
+    topicName: `${snsKey}-${namespace}`,
     snsKey,
     kmsKeyArn,
   });
