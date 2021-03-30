@@ -2,6 +2,7 @@ import { PluginConfig } from "./definitions";
 
 export default function getDefaultPluginConfig(): PluginConfig {
   return {
+    kms: {}, // required as default
     dlq: {
       enabled: true,
       alarms: {
