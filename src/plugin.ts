@@ -99,6 +99,7 @@ export class Plugin {
             dlqConfig: config.dlq,
             lambdaKey,
             namespace: this.options.stage,
+            kmsKeyArn: config.kms?.kmsKeyArn,
           },
           template
         );

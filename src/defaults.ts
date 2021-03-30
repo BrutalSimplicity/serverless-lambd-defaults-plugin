@@ -2,7 +2,9 @@ import { PluginConfig } from "./definitions";
 
 export default function getDefaultPluginConfig(): PluginConfig {
   return {
-    kms: {}, // required as default
+    kms: {
+      kmsKeyArn: undefined,
+    },
     dlq: {
       enabled: true,
       alarms: {
